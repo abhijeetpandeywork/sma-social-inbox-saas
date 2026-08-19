@@ -22,7 +22,7 @@ conn.on('ready', () => {
         `cd ${targetDir} && if [ ! -d ".git" ]; then git init && git remote add origin ${repoUrl} && git fetch origin && git checkout -b main origin/main -f; else git fetch origin && git reset --hard origin/main; fi`,
         `cd ${targetDir} && cp -n .env.example .env`,
         `cd ${targetDir} && composer install --no-dev --optimize-autoloader`,
-        `cd ${targetDir} && php artisan key:generate --force`,
+        `cd ${targetDir} && if ! grep -q "^APP_KEY=base64" .env; then php artisan key:generate --force; fi`,
         `cd ${targetDir} && php artisan migrate --force`,
         `cd ${targetDir} && php artisan db:seed --force`,
         `cd ${targetDir} && php artisan config:cache && php artisan route:cache && php artisan view:cache`,

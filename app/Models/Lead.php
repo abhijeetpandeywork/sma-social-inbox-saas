@@ -6,6 +6,7 @@ use App\Models\Scopes\TenantScope;
 use Illuminate\Database\Eloquent\Attributes\ScopedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Crypt;
 
 #[ScopedBy([TenantScope::class])]
 class Lead extends Model
@@ -30,9 +31,35 @@ class Lead extends Model
     ];
 
     protected $casts = [
-        'contact_phone' => 'encrypted',
         'captured_at' => 'datetime',
     ];
+
+    public function getContactPhoneAttribute($value)
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Throwable $e) {
+            // Fallback gracefully if decryption fails (e.g. unencrypted string or APP_KEY rotation)
+            return $value;
+        }
+    }
+
+    public function setContactPhoneAttribute($value)
+    {
+        if (empty($value)) {
+            $this->attributes['contact_phone'] = null;
+        } else {
+            try {
+                $this->attributes['contact_phone'] = Crypt::encryptString($value);
+            } catch (\Throwable $e) {
+                $this->attributes['contact_phone'] = $value;
+            }
+        }
+    }
 
     public function client()
     {
