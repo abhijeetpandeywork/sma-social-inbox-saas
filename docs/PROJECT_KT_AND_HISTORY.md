@@ -1,75 +1,53 @@
-# Knowledge Transfer (KT) & Architecture Reference Manual
-## Social Inbox Automation SaaS
+# Social Inbox Automation SaaS — Project Knowledge Transfer (KT) & Architecture Guide
 
-**Project Name:** Social Inbox Automation SaaS  
-**Target Domain:** `sma.digitalrubix.site`  
-**Hostinger SSH Server:** `147.93.23.184:65002` (User: `u406313474`)  
-**Repository:** Social Inbox Automation SaaS (GitHub)  
-**Creation Date:** August 19, 2026  
+## 1. Executive Summary & Hostinger Shared Hosting Context
+This application is an enterprise-grade multi-tenant Social Inbox Automation SaaS tailored specifically for **Hostinger Shared Hosting** (PHP 8.2 / 8.3, MySQL 8.0, Shared CPU/RAM, Database Queue Driver, Cron-based 1-minute queue processing with DB locks, No Redis/Daemon processes).
 
----
-
-## 1. Executive Summary & Purpose
-
-The Social Inbox Automation SaaS captures leads from Instagram and Facebook comments/DMs (along with Twitter/X, YouTube, and Google Business Profile reviews) by detecting phone numbers (Indian & International regex) and buying intent (Anthropic Claude AI classification for Hinglish/ambiguous comments), auto-replying, auto-hiding the comment, scoring the lead (Hot/Warm/Cold), and routing it to assigned team members.
-
-It is specifically architected to run reliably on **Hostinger SHARED Web Hosting** — no Redis, no Supervisor, no persistent daemons required.
+- **Production Live URL**: [https://sma.digitalrubix.site](https://sma.digitalrubix.site)
+- **API Health Endpoint**: [https://sma.digitalrubix.site/health](https://sma.digitalrubix.site/health)
+- **API Setup & Accounts Guide**: [https://sma.digitalrubix.site/connections](https://sma.digitalrubix.site/connections)
+- **GitHub Repository**: [https://github.com/abhijeetpandeywork/sma-social-inbox-saas](https://github.com/abhijeetpandeywork/sma-social-inbox-saas)
 
 ---
 
-## 2. Core Shared-Hosting Reliability Architecture
+## 2. Platform Connections & Webhook Setup Guide
 
-1. **Cron-Triggered Queue Engine**:
-   - Queue Driver: `database` (stored in MySQL/SQLite `jobs` table).
-   - Cron Execution: Runs every 1 minute: `php artisan queue:work --stop-when-empty --max-time=50`.
-   - Overlap Prevention: Database-backed cache locking (`->withoutOverlapping(10)`).
-2. **Exponential Retry Backoff & Dead-Letter Handling**:
-   - `ProcessWebhookEventJob`: 5 retry attempts with escalating backoff schedule (`30s`, `2m`, `10m`, `30m`, `1h`).
-   - Failed jobs after 5 attempts are automatically logged to `failed_actions` dead-letter queue table and `action_log`.
-3. **Database-Backed Rate Limiting & Circuit Breaker**:
-   - `RateLimiterService`: `rate_limit_counters` table tracks calls per platform/client window.
-   - `CircuitBreakerService`: `platform_health` table tracks consecutive failure counts. Opens circuit (`held` status) after 10 consecutive failures, automatically probing and resuming when healthy.
-4. **Monitoring & Health API**:
-   - Endpoint: `/health`
-   - Reports DB status, last successful cron queue execution timestamp, per-platform circuit health, and failed action counts. Returns HTTP 503 if cron has not executed within 5 minutes.
+### Meta (Instagram Business + Facebook Pages) Webhooks
+- **Callback URL**: `https://sma.digitalrubix.site/api/webhooks/meta`
+- **Verify Token**: `social_inbox_secret_token`
+- **Signature Algorithm**: HMAC-SHA256 (`X-Hub-Signature-256` header)
+- **Supported Webhook Subscriptions**:
+  - `comments`: Triggers auto-reply, intent scoring, phone extraction, comment hiding.
+  - `messages`: Processes DMs.
+  - `feed`: Handles post-level engagement.
 
----
+### Twitter / X Pay-Per-Use Tracking
+- API costs tracked per client: `$0.005` per read, `$0.015` per DM write, `$0.20` per link post.
 
-## 3. Database Schema Overview (PRD Section 7)
-
-- `clients`: `id, agency_id, name, brand_logo, status, data_retention_months, created_at, updated_at`
-- `team_members`: Authenticatable users with RBAC (`Agency Admin`, `Client Manager`, `Team Executive`), `assigned_clients` (JSON), and 2FA credentials.
-- `platform_connections`: `client_id, platform, access_token (AES encrypted), refresh_token (AES encrypted), token_expires_at, health_status`
-- `raw_events`: `client_id, platform, event_type, event_hash (SHA-256 unique), payload_json, processed`
-- `leads`: `client_id, platform, source_comment_id, contact_phone (AES encrypted at field level), contact_name, contact_handle, status, score, duplicate_of_lead_id, assigned_to, captured_at`
-- `automation_rules`: `client_id, platform, trigger_type, action_type, reply_template_variants (JSON A/B variants), business_hours_variant`
-- `failed_actions`: Extended dead-letter queue table.
-- `action_log`: Append-only audit log for auto-reply and auto-hide actions.
-- `rate_limit_counters`: Windows-based call counter per platform per client.
-- `platform_health`: Circuit breaker health status per platform.
-- `pii_access_log`: Append-only audit log recording every view/export of lead PII (DPDP Act compliance).
-- `sla_escalations`: Un-actioned Hot lead SLA breach tracking.
-- `linkedin_alerts`: Notification-only alert records.
+### YouTube Data API v3 & GMB Reviews
+- Cron-driven polling service checks YouTube video comments and Google Business Profile reviews every 15 minutes.
 
 ---
 
-## 4. Auth & RBAC Roles
+## 3. Seeded RBAC Access Accounts (Password: `password`)
 
-- **Agency Admin**: Access across all clients. Mandatory 2FA verification flow.
-- **Client Manager**: Access restricted via `TenantScope` to assigned clients list (`assigned_clients`).
-- **Team Executive**: Access restricted via `TenantScope` to assigned clients list.
-
-### Default Seeded Demo Credentials (Password: `password`)
-- Agency Admin: `admin@digitalrubix.com` (2FA Code: `123456`)
-- Client Manager: `manager@digitalrubix.com`
-- Team Executive: `exec@digitalrubix.com`
+| Role | Email | 2FA Secret Code | Scope |
+|---|---|---|---|
+| **Agency Admin** | `admin@digitalrubix.com` | `123456` | Cross-Tenant Global Access |
+| **Client Manager** | `manager@digitalrubix.com` | N/A | Assigned Clients (`Sai Business Solutions`, `Bagnomy`) |
+| **Team Executive** | `exec@digitalrubix.com` | N/A | Single Client (`Sai Business Solutions`) |
 
 ---
 
-## 5. Test Suite
+## 4. Automated Deployment & Maintenance Commands
 
-Run full automated test suite:
+### Hostinger Automated Deployment
+Run from workspace root:
 ```bash
-php artisan test
+node deploy_sma_digitalrubix.cjs
 ```
-All 25 unit and feature tests pass cleanly with 72 assertions covering webhook verification, deduplication, RBAC tenant scoping, PII encryption, rate limiting, circuit breaking, Claude intent classification, SLA escalations, and database backups.
+
+### Database Backup Command
+```bash
+php artisan app:backup-database
+```
