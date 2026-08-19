@@ -5,6 +5,7 @@ use App\Http\Controllers\AutomationRuleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\LeadController;
+use App\Http\Controllers\PlatformConnectionController;
 use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +31,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/automation', [AutomationRuleController::class, 'index'])->name('automation.index');
     Route::post('/automation/rules', [AutomationRuleController::class, 'store'])->name('automation.store');
+
+    Route::get('/connections', [PlatformConnectionController::class, 'index'])->name('connections.index');
+    Route::post('/connections', [PlatformConnectionController::class, 'store'])->name('connections.store');
 
     Route::get('/reports/lead-quality', [ReportController::class, 'leadQuality'])->name('reports.lead_quality');
 });

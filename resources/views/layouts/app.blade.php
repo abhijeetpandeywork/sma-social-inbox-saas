@@ -22,6 +22,7 @@
                 <nav class="hidden md:flex space-x-4 text-sm font-medium">
                     <a href="/dashboard" class="px-3 py-2 rounded-md hover:bg-slate-800 text-slate-200">Unified Inbox & Kanban</a>
                     <a href="/automation" class="px-3 py-2 rounded-md hover:bg-slate-800 text-slate-300">Automation Rules</a>
+                    <a href="/connections" class="px-3 py-2 rounded-md hover:bg-slate-800 text-slate-300">API Setup & Accounts</a>
                     <a href="/reports/lead-quality" class="px-3 py-2 rounded-md hover:bg-slate-800 text-slate-300">Lead Quality Report</a>
                     <a href="/health" target="_blank" class="px-3 py-2 rounded-md hover:bg-slate-800 text-slate-300 flex items-center gap-1">
                         System Health API
