@@ -43,8 +43,9 @@
                 </div>
                 <div>
                     <span class="text-[10px] uppercase font-bold text-slate-400">Failed / Dead-Letter</span>
-                    <p class="font-semibold {{ $failedCount > 0 ? 'text-red-600' : 'text-slate-700' }} mt-0.5">
-                        {{ $failedCount }} Issues
+                    @php $fCount = $failedCount ?? $failedActionsCount ?? 0; @endphp
+                    <p class="font-semibold {{ $fCount > 0 ? 'text-red-600' : 'text-slate-700' }} mt-0.5">
+                        {{ $fCount }} Issues
                     </p>
                 </div>
             </div>

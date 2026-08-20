@@ -56,6 +56,7 @@ class DashboardController extends Controller
             'lastQueueRun' => $lastQueueRun,
             'platformHealth' => $platformHealth,
             'failedActionsCount' => $failedActionsCount,
+            'failedCount' => $failedActionsCount,
             'connections' => $connections,
         ]);
     }
