@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\ProcessWebhookEventJob;
+use App\Models\PlatformConnection;
 use App\Models\RawEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -36,7 +37,7 @@ class WebhookController extends Controller
         $signatureHeader = $request->header('X-Hub-Signature-256');
         $appSecret = config('services.meta.app_secret', env('META_APP_SECRET', 'test_app_secret'));
 
-        // 1. Signature Verification (skip in local testing if signature header not set)
+        // 1. Signature Verification
         if ($signatureHeader && !app()->environment('testing')) {
             $expectedSignature = 'sha256=' . hash_hmac('sha256', $rawPayload, $appSecret);
             if (!hash_equals($expectedSignature, $signatureHeader)) {
@@ -51,6 +52,12 @@ class WebhookController extends Controller
 
         // 2. Generate Event Hash & Deduplicate
         $platform = $data['object'] ?? 'meta';
+        if ($platform === 'page') {
+            $platform = 'facebook';
+        } elseif ($platform === 'instagram') {
+            $platform = 'instagram';
+        }
+
         $entries = $data['entry'] ?? [];
 
         foreach ($entries as $entry) {
@@ -63,8 +70,13 @@ class WebhookController extends Controller
                 continue;
             }
 
+            // Resolve client by platform_account_id
+            $conn = PlatformConnection::withoutGlobalScopes()->where('platform_account_id', $entryId)->first();
+            $clientId = $conn ? $conn->client_id : 1;
+
             // 3. Store raw event & dispatch queue job
             $rawEvent = RawEvent::create([
+                'client_id' => $clientId,
                 'platform' => $platform,
                 'event_type' => $entry['changes'][0]['field'] ?? $data['object'] ?? 'webhook',
                 'event_hash' => $eventHash,

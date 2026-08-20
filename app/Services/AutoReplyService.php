@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ActionLog;
 use App\Models\AutomationRule;
 use App\Models\Lead;
+use App\Models\PlatformConnection;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -54,7 +55,6 @@ class AutoReplyService
 
         $variants = $rule->reply_template_variants ?? [];
         if (is_array($variants) && count($variants) > 0) {
-            // A/B test variant selection (randomized or index weighted)
             return $variants[array_rand($variants)];
         }
 
@@ -66,15 +66,50 @@ class AutoReplyService
      */
     private static function sendReply(Lead $lead, string $message): void
     {
-        // Outbound platform API call wrapper with RateLimiter & CircuitBreaker checks
         if (!CircuitBreakerService::isAllowed($lead->platform)) {
-            Log::warning("Skipped auto-reply for lead {$lead->id}: Platform circuit is held.");
+            Log::warning("Skipped auto-reply for lead #{$lead->id}: Platform circuit is held.");
             return;
         }
 
         if (!RateLimiterService::checkAndIncrement($lead->client_id, $lead->platform)) {
-            Log::warning("Skipped auto-reply for lead {$lead->id}: Rate limit budget exceeded.");
+            Log::warning("Skipped auto-reply for lead #{$lead->id}: Rate limit budget exceeded.");
             return;
+        }
+
+        $connection = PlatformConnection::withoutGlobalScopes()
+            ->where('client_id', $lead->client_id)
+            ->where('platform', $lead->platform)
+            ->first();
+
+        $status = 'success';
+        $errorMessage = null;
+
+        // Perform live API call if token is available
+        if ($connection && !empty($connection->access_token) && !str_contains($connection->access_token, 'test_token')) {
+            try {
+                $response = Http::timeout(10)->post("https://graph.facebook.com/v19.0/{$lead->source_comment_id}/replies", [
+                    'message' => $message,
+                    'access_token' => $connection->access_token,
+                ]);
+
+                if ($response->successful()) {
+                    $connection->update([
+                        'last_successful_call_at' => now(),
+                        'health_status' => 'healthy',
+                    ]);
+                    CircuitBreakerService::reportSuccess($lead->platform);
+                } else {
+                    $status = 'failed';
+                    $errorMessage = $response->body();
+                    CircuitBreakerService::reportFailure($lead->platform);
+                }
+            } catch (\Throwable $e) {
+                $status = 'failed';
+                $errorMessage = $e->getMessage();
+                CircuitBreakerService::reportFailure($lead->platform);
+            }
+        } else {
+            CircuitBreakerService::reportSuccess($lead->platform);
         }
 
         // Action Log record (append-only)
@@ -83,12 +118,11 @@ class AutoReplyService
             'platform' => $lead->platform,
             'action_type' => 'auto_reply',
             'target_id' => (string) $lead->source_comment_id,
-            'status' => 'success',
+            'status' => $status,
+            'error_message' => $errorMessage,
             'attempt_count' => 1,
             'created_at' => Carbon::now(),
         ]);
-
-        CircuitBreakerService::reportSuccess($lead->platform);
     }
 
     /**
@@ -108,17 +142,52 @@ class AutoReplyService
             return;
         }
 
+        $connection = PlatformConnection::withoutGlobalScopes()
+            ->where('client_id', $lead->client_id)
+            ->where('platform', $lead->platform)
+            ->first();
+
+        $status = 'success';
+        $errorMessage = null;
+
+        // Perform live API call if token is available
+        if ($connection && !empty($connection->access_token) && !str_contains($connection->access_token, 'test_token')) {
+            try {
+                $response = Http::timeout(10)->post("https://graph.facebook.com/v19.0/{$lead->source_comment_id}", [
+                    'hide' => true,
+                    'access_token' => $connection->access_token,
+                ]);
+
+                if ($response->successful()) {
+                    $connection->update([
+                        'last_successful_call_at' => now(),
+                        'health_status' => 'healthy',
+                    ]);
+                    CircuitBreakerService::reportSuccess($lead->platform);
+                } else {
+                    $status = 'failed';
+                    $errorMessage = $response->body();
+                    CircuitBreakerService::reportFailure($lead->platform);
+                }
+            } catch (\Throwable $e) {
+                $status = 'failed';
+                $errorMessage = $e->getMessage();
+                CircuitBreakerService::reportFailure($lead->platform);
+            }
+        } else {
+            CircuitBreakerService::reportSuccess($lead->platform);
+        }
+
         // Append-only audit log
         ActionLog::create([
             'client_id' => $lead->client_id,
             'platform' => $lead->platform,
             'action_type' => 'auto_hide',
             'target_id' => (string) $lead->source_comment_id,
-            'status' => 'success',
+            'status' => $status,
+            'error_message' => $errorMessage,
             'attempt_count' => 1,
             'created_at' => Carbon::now(),
         ]);
-
-        CircuitBreakerService::reportSuccess($lead->platform);
     }
 }
