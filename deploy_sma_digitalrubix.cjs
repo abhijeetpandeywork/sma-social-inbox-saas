@@ -24,7 +24,7 @@ conn.on('ready', () => {
         `cd ${targetDir} && composer install --no-dev --optimize-autoloader`,
         `cd ${targetDir} && if ! grep -q "^APP_KEY=base64" .env; then php artisan key:generate --force; fi`,
         `cd ${targetDir} && php artisan migrate --force`,
-        `cd ${targetDir} && php artisan db:seed --force`,
+        `cd ${targetDir} && php artisan app:reset-demo-data`,
         `cd ${targetDir} && php artisan config:cache && php artisan route:cache && php artisan view:cache`,
         `cd ${targetDir} && php artisan --version`
     ].join(' && ');
