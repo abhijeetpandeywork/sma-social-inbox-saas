@@ -18,9 +18,7 @@ class SetupWizardController extends Controller
         $step = (int) $request->get('step', 1);
         $clients = Client::orderBy('name')->get();
         $firstClient = $clients->first();
-        $admin = TeamMember::where('email', 'abhijeet.digitalrubix@gmail.com')->first() 
-            ?? TeamMember::where('role', 'Agency Admin')->first() 
-            ?? auth()->user();
+        $admin = TeamMember::where('role', 'Agency Admin')->first() ?? auth()->user();
 
         $webhookUrl = url('/api/webhooks/meta');
         $verifyToken = config('services.meta.verify_token', 'social_inbox_secret_token');
