@@ -66,15 +66,15 @@ class ResetDemoDataCommand extends Command
             }
             TeamMember::create([
                 'agency_id' => 1,
-                'name' => 'Agency Administrator',
-                'email' => 'admin@digitalrubix.com',
+                'name' => 'Abhijeet Pandey',
+                'email' => 'abhijeet.digitalrubix@gmail.com',
                 'password' => Hash::make('password'),
                 'role' => 'Agency Admin',
                 'assigned_clients' => [],
                 'two_factor_enabled' => true,
                 'two_factor_secret' => '123456',
             ]);
-            $this->info('Created/Reset primary Admin: admin@digitalrubix.com (Password: password, 2FA: 123456)');
+            $this->info('Created/Reset primary Admin: abhijeet.digitalrubix@gmail.com (Password: password, 2FA: 123456)');
         }
 
         Schema::enableForeignKeyConstraints();

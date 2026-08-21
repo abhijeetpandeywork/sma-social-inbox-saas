@@ -70,7 +70,7 @@
 
                         <div>
                             <label class="block text-xs font-bold text-slate-700 mb-1">Admin Email Address (Login ID)</label>
-                            <input type="email" name="admin_email" value="{{ old('admin_email', $admin->email ?? 'admin@digitalrubix.com') }}" required class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-800">
+                            <input type="email" name="admin_email" value="{{ old('admin_email', $admin->email ?? 'abhijeet.digitalrubix@gmail.com') }}" required class="w-full text-xs bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-800">
                         </div>
 
                         <div>
